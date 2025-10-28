@@ -43,6 +43,7 @@ class AttentionModule(nn.Module):
         att = torch.sigmoid(self.conv2(att))  # [B,1,H,W] Normalizes output between 0 and 1
         return att
 
+
 class DELG(nn.Module):
     def __init__(self, pretrained=True, use_global=True, use_local=True):
         super(DELG, self).__init__()
