@@ -1,78 +1,72 @@
 import streamlit as st
-from PIL import Image
-import torch
-import numpy as np
-from torchvision import transforms
-from sklearn.metrics.pairwise import cosine_similarity
-import os
-from DELG_Class import DELG
-from Retrieval_Class import ImageRetrieval 
 
-# --- CONFIG ---
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-MODEL_PATH = "allModel/delg_global_finetune_local_pretrained.pth"
-FEATURE_PATH = "features/delg_global_finetune_local_pretrained_features.npz"
+st.set_page_config(
+    page_title="Home",  # Page title
+    layout="wide" 
+)
+st.title("Image Retrieval System")
 
-# --- LOAD MODEL & FEATURES ---
-@st.cache_resource
-def load_retriever():
-    retriever = ImageRetrieval(
-        model_class=DELG,
-        model_path=MODEL_PATH,
-        device=DEVICE,
-        use_global=True,
-        use_local=True
-    )
-    retriever.load_features(FEATURE_PATH)
-    return retriever
+# Introduction
+st.write("""
+## About This Project
+This project aims to build an image search system capable of searching and retrieving images 
+from a digital repository with high precision and efficiency by using a training dataset. 
+Traditional keyword-based search often fails to capture the semantic meaning of visual content, 
+leading to inaccurate or incomplete results. This project leverages machine learning (ML) techniques to enable 
+content-based image retrieval (CBIR) and semantic search, allowing users to find images
+not only by textual metadata but also by visual similarity.
+""")
 
-retriever = load_retriever()
+st.write("""
+## Models Implemented
+The following models have been implemented and can be explored through the navigation buttons below:
+- **DELG** 
+- **ResNet50**
+""")
 
-# --- PAGE UI ---
-st.title("Landmark Image Retrieval (DELG)")
+st.divider()
+example_query = "data/test/180.jpg"
+example_results = [
+    "dataset/train_Pyramids Of Giza - Egypt_1736.jpg",
+    "dataset/train_Pyramids Of Giza - Egypt_1849.jpg",
+    "dataset/train_Pyramids Of Giza - Egypt_1706.jpg",
+    "dataset/train_Pyramids Of Giza - Egypt_1733.jpg",
+    "dataset/train_Pyramids Of Giza - Egypt_1779.jpg",
+]
 
-uploaded_file = st.file_uploader("📸 Upload an image", type=["jpg", "jpeg", "png"])
-top_k = st.slider("Top-K results", 1, 20, 5)
+# Layout: Query | Arrow | Retrievals
+cols = st.columns([1, 0.2, 5])
 
-if uploaded_file:
-    query_img = Image.open(uploaded_file).convert("RGB")
-    st.image(query_img, caption="Query Image", use_container_width=True)
+with cols[0]:
+    st.markdown("<center><b>User’s Query</b></center>", unsafe_allow_html=True)
+    st.image(example_query, use_container_width=True)
 
-    # --- Extract global descriptor ---
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225])
-    ])
-    img_tensor = transform(query_img).unsqueeze(0).to(DEVICE)
+with cols[1]:
+    st.header("&emsp;  ->")  
 
-    with torch.no_grad():
-        outputs = retriever.model(img_tensor)
-        if isinstance(outputs, dict) and "global" in outputs:
-            query_feat = outputs["global"][0].cpu().numpy()
-        elif isinstance(outputs, dict) and "global_descriptor" in outputs:
-            query_feat = outputs["global_descriptor"][0].cpu().numpy()
-        else:
-            query_feat = outputs.cpu().numpy()
+with cols[2]:
+    st.markdown("<center><b>Top-5 Retrieval Results</b></center>", unsafe_allow_html=True)
+    result_cols = st.columns(5)
+    for i, img_path in enumerate(example_results):
+        with result_cols[i]:
+            st.image(img_path, use_container_width=True)
 
-    # --- Compute cosine similarities ---
-    all_paths = list(retriever.global_features.keys())
-    all_feats = np.array(list(retriever.global_features.values()))
-    sims = cosine_similarity(query_feat[None, :], all_feats)[0]
-    top_idx = np.argsort(-sims)[:top_k]
-    results = [(all_paths[i], sims[i]) for i in top_idx]
+st.divider()
+# Navigation buttons
+st.write("### Models DEMO:")
+col1, col2 = st.columns(2)
 
-    # --- Extract landmark name from best match path ---
-    top_match_path = results[0][0]
-    # Example: dataset/train_Stonehenge_2320.jpg -> "Stonehenge"
-    landmark_name = os.path.basename(top_match_path).split("_")[1] if "_" in top_match_path else "Unknown"
+with col1:
+    if st.button("DELG Details"):
+        st.switch_page("pages/1_delg_details.py")
+    elif st.button("DELG with finetune Global  & Pretrained Local "):
+        st.switch_page("pages/2_delg_global_finetune_local_pretrained.py")
 
-    st.markdown(f"### Landmark: **{landmark_name}**")
+with col2:
+    if st.button("ResNet50 Pretrained"):
+        st.switch_page("pages/3_resnet50.py")
 
-    # --- Display top results ---
-    st.markdown("### Top Retrieved Images")
-    cols = st.columns(top_k)
-    for i, (path, score) in enumerate(results):
-        with cols[i % top_k]:
-            st.image(path, caption=f"{os.path.basename(path)}\nSim: {score:.4f}", use_container_width=True)
+# Footer
+st.write("---")
+st.write("6604062630439 Phumipat Jitreephot Sec 1")
+st.write("6604062630501 Vorapon Witheethum Sec 1")
